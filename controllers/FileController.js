@@ -18,12 +18,13 @@ exports.listAllFiles = async (req,res) => {
 exports.handleFileUpload = async (req,res) => {
 
     let token = await TokenService.randomToken();
+    console.log('token',token);
     writeFiles(req,res,token);
 
 };
 exports.handleFileUpdate = (req,res) => {
     console.log('handleFileUpdate');
-    writeFiles(req,res,req.token)
+    writeFiles(req,res,req.param.token)
 };
 exports.handleFileDelete = async (req,res) => {
     fs.rmdir(UPLOAD_PATH + req.params.token, { recursive: true }, (err) => {
@@ -39,8 +40,8 @@ exports.handleFileDelete = async (req,res) => {
 const writeFiles = async (req,res,token) => {
     try{
         let files = await getFiles(req);
-
-        if(!files.length){
+        
+        if(!files.file){
             throw 'File not found';
         }
 

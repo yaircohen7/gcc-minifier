@@ -12,8 +12,11 @@ String.prototype.replaceLast = function (what, replacement) {
 };
 
 app.get('/', file.listAllFiles)
-
 app.post('/upload', file.handleFileUpload)
+app.get('/:token([a-zA-Z0-9]{16})', file.handleFileUpdate)
+app.put('/:token([a-zA-Z0-9]{16})', file.handleFileUpdate)
+app.delete('/:token([a-zA-Z0-9]{16})', file.handleFileDelete);
+
 
 app.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`)

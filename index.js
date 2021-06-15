@@ -1,14 +1,19 @@
-const express = require('express')
-const app = express()
-const port = 3030
-var file = require('./file');
+const express = require('express');
+const cors = require('cors')
+const app = express();
+const port = 3030;
+const file = require('./controllers/FileController');
+app.use(cors());
 
+String.prototype.replaceLast = function (what, replacement) {
+    var pcs = this.split(what);
+    var lastPc = pcs.pop();
+    return pcs.join(what) + replacement + lastPc;
+};
 
-app.get('/', (req, res) => {
-    res.send('Hello World!')
-})
+app.get('/', file.listAllFiles)
 
-app.post('/upload', file.upload)
+app.post('/upload', file.handleFileUpload)
 
 app.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`)

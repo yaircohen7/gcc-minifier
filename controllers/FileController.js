@@ -9,21 +9,17 @@ const UPLOAD_PATH = './storage/uploads/';
 
 exports.listAllFiles = async (req,res) => {
 
-    const response = await readFiles(
-        UPLOAD_PATH,
-    );
-    console.log('response', response );
+    const response = await readFiles(UPLOAD_PATH);
+    res.writeHead(200, { 'Content-Type': 'application/json'});
+    res.end(JSON.stringify({reponse:response}));
 
 };
 exports.handleFileUpload = async (req,res) => {
-
     let token = await TokenService.randomToken();
-    console.log('token',token);
     writeFiles(req,res,token);
 
 };
 exports.handleFileUpdate = (req,res) => {
-    console.log('handleFileUpdate');
     writeFiles(req,res,req.param.token)
 };
 exports.handleFileDelete = async (req,res) => {
@@ -40,8 +36,8 @@ exports.handleFileDelete = async (req,res) => {
 const writeFiles = async (req,res,token) => {
     try{
         let files = await getFiles(req);
-        
-        if(!files.file){
+
+        if(!files?.file){
             throw 'File not found';
         }
 
@@ -54,13 +50,27 @@ const writeFiles = async (req,res,token) => {
     }
 }
 
-const readFiles = async (dir) => {
-    const dirents = await readdir(dir, { withFileTypes: true });
-    const files = await Promise.all(dirents.map((dirent) => {
-        const res = resolve(dir, dirent.name);
-        return dirent.isDirectory() ? getFiles(res) : res;
-    }));
-    return Array.prototype.concat(...files);
+const readFiles =  (dir,arrayOfFiles) => {
+
+    const excludeFiles = ['.gitignore'];
+    let files = fs.readdirSync(dir)
+
+     arrayOfFiles = arrayOfFiles || {}
+
+    files.forEach(function(file) {
+        let stats = fs.statSync(dir + "/" + file);
+        if (stats.isDirectory()) {
+            arrayOfFiles = readFiles(dir + "/" + file, arrayOfFiles);
+        } else {
+            if(!excludeFiles.includes(file)){
+                let token = dir.replace(`${UPLOAD_PATH}/`,"");
+                arrayOfFiles[token] = arrayOfFiles[token] ?? {files:[],timestamps:{cTime:stats.ctimeMs,mTime:stats.mtimeMs}};
+                arrayOfFiles[token].files.push(file);
+            }
+        }
+    })
+
+    return arrayOfFiles
 };
 
 const handleFileUploadResponse = (res,token,scriptSummary) => {
@@ -87,16 +97,16 @@ const handleFileUploadResponse = (res,token,scriptSummary) => {
 };
 
 const saveFiles = (token,files)=>{
-    console.log('saveFiles');
-    let fileName = files.file.name;
+
+    let newFileName = files.file.name.replace(/[^a-z0-9\-]/gi, '_').replaceLast('js','.js');
     let oldpath = files.file.path;
     let newpath = `${UPLOAD_PATH}/${token}/`;
 
     if (!fs.existsSync(newpath)) {
         fs.mkdirSync(newpath);
     }
-    fs.renameSync(oldpath, newpath + fileName);
-    return [newpath + fileName];
+    fs.renameSync(oldpath, newpath + newFileName);
+    return [newpath + newFileName];
 };
 
 const getFiles = async (req) => {

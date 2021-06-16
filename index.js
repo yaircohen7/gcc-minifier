@@ -8,18 +8,18 @@ const file = require('./controllers/FileController');
 app.use(cors());
 
 String.prototype.replaceLast = function (what, replacement) {
-    var pcs = this.split(what);
+    let pcs = this.split(what);
     if(pcs.length > 1){
-        var lastPc = pcs.pop();
+        let lastPc = pcs.pop();
         return pcs.join(what) + replacement + lastPc;
     }
     return this;
 };
 
-app.get('/', file.handleGetAllItems)
-app.post('/upload', file.handleFileUpload)
-app.get('/:token([a-zA-Z0-9]{16})', file.handleGetItem)
-app.put('/:token([a-zA-Z0-9]{16})', file.handleFileUpdate)
+app.get('/', file.handleGetAllItems);
+app.post('/upload', file.handleFileUpload);
+app.get('/:token([a-zA-Z0-9]{16})', file.handleGetItem);
+app.put('/:token([a-zA-Z0-9]{16})', file.handleFileUpdate);
 app.delete('/:token([a-zA-Z0-9]{16})', file.handleFileDelete);
 
 app.use((req, res,next)=>{

@@ -22,7 +22,19 @@ exports.handleFileUpload = async (req,res) => {
 
 };
 exports.handleFileUpdate = (req,res) => {
-    writeFiles(req,res,req.param.token)
+    writeFiles(req,res,req.params.token)
+};
+exports.handleGetItem = async (req,res) => {
+    let token = req.params.token;
+    console.log('token',token,req.params.token);
+    if (!fs.existsSync(UPLOAD_PATH + token)) {
+        res.writeHead(404, { 'Content-Type': 'application/json','X-File-Id':token });
+        res.end(JSON.stringify({response:'File not found'}));
+    }
+    const response = await readFiles(UPLOAD_PATH + token,{},true);
+    res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
+    res.end(JSON.stringify({token:token,content:response}));
+    return;
 };
 exports.handleFileDelete = async (req,res) => {
     fs.rmdir(UPLOAD_PATH + req.params.token, { recursive: true }, (err) => {
@@ -58,7 +70,7 @@ const writeFiles = async (req,res,token) => {
     }
 }
 
-const readFiles =  (dir,arrayOfFiles) => {
+const readFiles =  (dir,arrayOfFiles,withContent = false) => {
 
     const excludeFiles = ['.gitignore'];
     let files = fs.readdirSync(dir)
@@ -68,12 +80,16 @@ const readFiles =  (dir,arrayOfFiles) => {
     files.forEach(function(file) {
         let stats = fs.statSync(dir + "/" + file);
         if (stats.isDirectory()) {
-            arrayOfFiles = readFiles(dir + "/" + file, arrayOfFiles);
+            arrayOfFiles = readFiles(dir + "/" + file, arrayOfFiles,withContent);
         } else {
             if(!excludeFiles.includes(file)){
                 let token = dir.replace(`${UPLOAD_PATH}/`,"");
                 arrayOfFiles[token] = arrayOfFiles[token] ?? {files:[],timestamps:{cTime:stats.ctimeMs,mTime:stats.mtimeMs}};
-                arrayOfFiles[token].files.push(file);
+                if(withContent){
+                    arrayOfFiles[token].files.push({name:file,content:String(fs.readFileSync(dir +'/'+file))});
+                }else{
+                    arrayOfFiles[token].files.push(file);
+                }
             }
         }
     })

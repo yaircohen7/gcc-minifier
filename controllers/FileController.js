@@ -30,7 +30,7 @@ exports.handleFileDelete = async (req,res) => {
             generalErrorResponse();
             return;
         }
-        res.writeHead(200, { 'Content-Type': 'text/javascript' });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('success');
     });
 };
@@ -85,16 +85,16 @@ const handleFileUploadResponse = (res,token,scriptSummary) => {
     if(scriptSummary.code === 0){
         let data = fs.readFileSync(scriptSummary.target);
         res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
-        res.end(data);
+        res.end(JSON.stringify({token:token,content:data}));
         return;
     }
 
     deleteFolder(UPLOAD_PATH + token);
 
     if([1,2].includes(scriptSummary.code)){
-        res.writeHead(406, { 'Content-Type': 'text/javascript'});
+        res.writeHead(406, { 'Content-Type': 'application/json'});
         let pattern = new RegExp(UPLOAD_PATH + token, "g");
-        res.end(scriptSummary.error.replace(pattern,''));
+        res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
         return;
     }
 

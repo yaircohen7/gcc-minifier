@@ -1,16 +1,19 @@
 const fs = require('fs');
 const Promise = require("bluebird");
 const formidable = require('formidable');
+const mime = require('mime-types');
+const yauzl = require("yauzl");
 const Gcc = require('../services/GccService');
 const TokenService = require('../services/TokenService');
 
 const UPLOAD_PATH = './storage/uploads/';
+const ALLOWED_FILE_TYPES = ['text/javascript','application/javascript'];
 
 exports.listAllFiles = async (req,res) => {
 
     const response = await readFiles(UPLOAD_PATH);
     res.writeHead(200, { 'Content-Type': 'application/json'});
-    res.end(JSON.stringify({reponse:response}));
+    res.end(JSON.stringify({reponse:Object.entries(response)}));
 
 };
 exports.handleFileUpload = async (req,res) => {
@@ -41,6 +44,12 @@ const writeFiles = async (req,res,token) => {
         }
 
         let [source] = await saveFiles(token,files);
+
+        if(!ALLOWED_FILE_TYPES.includes(mime.lookup('../'+source))){
+            deleteFolder(UPLOAD_PATH + token);
+            throw 'File not supported';
+        }
+
         let scriptSummary = await Gcc.runScript(source);
 
         handleFileUploadResponse(res,token,scriptSummary);
@@ -79,15 +88,13 @@ const handleFileUploadResponse = (res,token,scriptSummary) => {
         res.end(data);
         return;
     }
-    fs.rmdir(dir, { recursive: true }, (err) => {
-        if (err) {
-            console.log(`Error while deleting ${dir}`,err);
-        }
-    });
 
-    if(scriptSummary.code === 2){
+    deleteFolder(UPLOAD_PATH + token);
+
+    if([1,2].includes(scriptSummary.code)){
         res.writeHead(406, { 'Content-Type': 'text/javascript'});
-        res.end(scriptSummary.error.replace(UPLOAD_PATH + token,''));
+        let pattern = new RegExp(UPLOAD_PATH + token, "g");
+        res.end(scriptSummary.error.replace(pattern,''));
         return;
     }
 
@@ -95,9 +102,17 @@ const handleFileUploadResponse = (res,token,scriptSummary) => {
 
 };
 
-const saveFiles = (token,files)=>{
+const deleteFolder = (folder) => {
+    fs.rmdir(folder, { recursive: true }, (err) => {
+        if (err) {
+            console.log(`Error while deleting ${folder}`,err);
+        }
+    });
+};
 
-    let newFileName = files.file.name.replace(/[^a-z0-9\-]/gi, '_').replaceLast('js','.js');
+const saveFiles = async (token,files)=>{
+
+    let newFileName = files.file.name.replace(/[^a-z0-9\-]/gi, '_').replaceLast('js','.js').replaceLast('zip','.zip');
     let oldpath = files.file.path;
     let newpath = `${UPLOAD_PATH}/${token}/`;
 
@@ -105,9 +120,47 @@ const saveFiles = (token,files)=>{
         fs.mkdirSync(newpath);
     }
     fs.renameSync(oldpath, newpath + newFileName);
+
+    if(mime.lookup(newpath + newFileName) === 'application/zip'){
+        return handleZipFile(newpath,newFileName);
+    }
+
     return [newpath + newFileName];
 };
+const handleZipFile = async (newpath,newFileName) => {
+    let unzippedName = newFileName.replaceLast('zip','js');
 
+    let promise = new Promise((resolve, reject) => {
+        yauzl.open(newpath + newFileName, {lazyEntries: true}, function(err, zipfile) {
+            if (err) reject(err);
+            zipfile.readEntry();
+            zipfile.on("entry", function(entry) {
+                if (/\/$/.test(entry.fileName)) {
+                    // Directory file names end with '/'.
+                    // Note that entries for directories themselves are optional.
+                    // An entry's fileName implicitly requires its parent directories to exist.
+                    zipfile.readEntry();
+                } else {
+                    // file entry
+                    zipfile.openReadStream(entry, function(err, readStream) {
+                        let writeStream = fs.createWriteStream(newpath + unzippedName,{ 'flags': 'a'});
+                        if (err) reject(err);
+                        readStream.on("end", function() {
+                            zipfile.readEntry();
+                        });
+                        readStream.pipe(writeStream);
+                    });
+                }
+            });
+            zipfile.on('end',function(){
+                fs.rm(newpath + newFileName,(err)=>console.log(err));
+                resolve([newpath + unzippedName]);
+            });
+        });
+    });
+
+    return await promise;
+};
 const getFiles = async (req) => {
     const form = new formidable({ multiples: true });
     form.encoding = 'utf-8';
@@ -119,7 +172,6 @@ const getFiles = async (req) => {
                 reject(err);
                 return;
             }
-
             console.log('resolved');
             resolve(files);
             return;

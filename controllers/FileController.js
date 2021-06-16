@@ -1,5 +1,4 @@
 const fs = require('fs');
-const { readdir } = require('fs').promises;
 const Promise = require("bluebird");
 const formidable = require('formidable');
 const Gcc = require('../services/GccService');

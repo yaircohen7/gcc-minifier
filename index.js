@@ -17,6 +17,9 @@ app.get('/:token([a-zA-Z0-9]{16})', file.handleFileUpdate)
 app.put('/:token([a-zA-Z0-9]{16})', file.handleFileUpdate)
 app.delete('/:token([a-zA-Z0-9]{16})', file.handleFileDelete);
 
+app.use((req, res,next)=>{
+    res.status(404).send('Page not found');
+});
 
 app.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`)

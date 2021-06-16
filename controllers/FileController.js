@@ -9,6 +9,7 @@ const TokenService = require('../services/TokenService');
 const UPLOAD_PATH = './storage/uploads/';
 const ALLOWED_FILE_TYPES = ['text/javascript','application/javascript'];
 
+// Public methods
 exports.handleGetAllItems = async (req,res) => {
 
     const response = await readFiles(UPLOAD_PATH);
@@ -48,12 +49,55 @@ exports.handleFileDelete = async (req,res) => {
     });
 };
 
+// Responses
 const getItemsResponse = async (req,res,token) => {
     const response = await readFiles(UPLOAD_PATH + token,{},true);
     res.writeHead(200, { 'Content-Type': 'application/json','X-File-Id':token });
     res.end(JSON.stringify({token:token,content:response[UPLOAD_PATH + token]}));
 };
+const handleFileUploadResponse = (res,token,scriptSummary) => {
+    if(scriptSummary.code === 0){
+        let data = fs.readFileSync(scriptSummary.target);
+        res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
+        res.end(JSON.stringify({token:token,content:String(data)}));
+        return;
+    }
 
+    deleteFolder(UPLOAD_PATH + token);
+
+    res.writeHead(406, { 'Content-Type': 'application/json'});
+    let pattern = new RegExp(UPLOAD_PATH + token, "g");
+    res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
+    return;
+
+
+};
+const generalErrorResponse = (res,msg) => {
+    console.log('generalErrorResponse',msg);
+    res.writeHead(500, { 'Content-Type': 'application/json'});
+    res.end(JSON.stringify({response:msg ?? 'Unknown error'}));
+};
+
+// Files handlers
+const getFiles = async (req) => {
+
+    return new Promise((resolve, reject) => {
+        const form = formidable({ multiples: true });
+        form.encoding = 'utf-8';
+        form.parse(req, (err, fields, files) => {
+            if (err) {
+                reject(err);
+            }
+            resolve(files);
+        });
+    }).then((files) => {
+        if(!files?.file){
+            throw 'File is missing!';
+        }
+        return files;
+    });
+
+};
 const writeFiles = async (req,res,token) => {
     try{
         let files = await getFiles(req);
@@ -69,7 +113,6 @@ const writeFiles = async (req,res,token) => {
         generalErrorResponse(res,e);
     }
 }
-
 const readFiles =  (dir,arrayOfFiles,withContent = false) => {
 
     const excludeFiles = ['.gitignore'];
@@ -96,15 +139,6 @@ const readFiles =  (dir,arrayOfFiles,withContent = false) => {
 
     return arrayOfFiles
 };
-
-const deleteFolder = (folder) => {
-    fs.rmdir(folder, { recursive: true }, (err) => {
-        if (err) {
-            console.log(`Error while deleting ${folder}`,err);
-        }
-    });
-};
-
 const saveFiles = async (token,files)=>{
 
     let newFileName = files.file.name.replace(/[^a-z0-9\-.]/gi, '_');
@@ -122,7 +156,15 @@ const saveFiles = async (token,files)=>{
 
     return [newpath + newFileName];
 };
+const deleteFolder = (folder) => {
+    fs.rmdir(folder, { recursive: true }, (err) => {
+        if (err) {
+            console.log(`Error while deleting ${folder}`,err);
+        }
+    });
+};
 
+// Helpers
 const checkFileMimeType = (source,token) => {
     if(!ALLOWED_FILE_TYPES.includes(mime.lookup('../'+source))){
         deleteFolder(UPLOAD_PATH + token);
@@ -130,44 +172,6 @@ const checkFileMimeType = (source,token) => {
     }
     return;
 }
-
-const getFiles = async (req) => {
-
-    return new Promise((resolve, reject) => {
-        const form = formidable({ multiples: true });
-        form.encoding = 'utf-8';
-        form.parse(req, (err, fields, files) => {
-            if (err) {
-                reject(err);
-            }
-            resolve(files);
-        });
-    }).then((files) => {
-        if(!files?.file){
-            throw 'File is missing!';
-        }
-        return files;
-    });
-
-};
-
-const handleFileUploadResponse = (res,token,scriptSummary) => {
-    if(scriptSummary.code === 0){
-        let data = fs.readFileSync(scriptSummary.target);
-        res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
-        res.end(JSON.stringify({token:token,content:String(data)}));
-        return;
-    }
-
-    deleteFolder(UPLOAD_PATH + token);
-
-    res.writeHead(406, { 'Content-Type': 'application/json'});
-    let pattern = new RegExp(UPLOAD_PATH + token, "g");
-    res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
-    return;
-
-
-};
 const handleZipFile = async (newpath,newFileName) => {
     let unzippedName = newFileName.replaceLast('zip','js');
 
@@ -201,9 +205,4 @@ const handleZipFile = async (newpath,newFileName) => {
     });
 
     return await promise;
-};
-const generalErrorResponse = (res,msg) => {
-    console.log('generalErrorResponse',msg);
-    res.writeHead(500, { 'Content-Type': 'application/json'});
-    res.end(JSON.stringify({response:msg ?? 'Unknown error'}));
 };

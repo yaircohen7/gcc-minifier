@@ -1,7 +1,9 @@
+const dotenv = require('dotenv');
+dotenv.config();
 const express = require('express');
 const cors = require('cors')
 const app = express();
-const port = 3030;
+const port = process.env.PORT ?? 3030;
 const file = require('./controllers/FileController');
 app.use(cors());
 
@@ -25,5 +27,5 @@ app.use((req, res,next)=>{
 });
 
 app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`)
+    console.log(`This app is listening at http://localhost:${port}`)
 })

@@ -18,10 +18,13 @@ exports.handleGetAllItems = async (req,res) => {
 };
 exports.handleFileUpload = async (req,res) => {
     let token = await TokenService.randomToken();
-    writeFiles(req,res,token);
+    let scriptSummary = await writeFiles(req,res,token);
+    handleFileUploadResponse(res,token,scriptSummary);
 };
-exports.handleFileUpdate = (req,res) => {
-    writeFiles(req,res,req.params.token)
+exports.handleFileUpdate = async(req,res) => {
+    let token = req.params.token;
+    await writeFiles(req,res,token);
+    getItemsResponse(req,res,token);
 };
 exports.handleGetItem = async (req,res) => {
     let token = req.params.token;
@@ -30,10 +33,8 @@ exports.handleGetItem = async (req,res) => {
         res.writeHead(404, { 'Content-Type': 'application/json','X-File-Id':token });
         res.end(JSON.stringify({response:'File not found'}));
     }
-    const response = await readFiles(UPLOAD_PATH + token,{},true);
-    res.writeHead(200, { 'Content-Type': 'application/json','X-File-Id':token });
-    res.end(JSON.stringify({token:token,content:response[UPLOAD_PATH + token]}));
-    return;
+    getItemsResponse(req,res,token);
+
 };
 exports.handleFileDelete = async (req,res) => {
     fs.rmdir(UPLOAD_PATH + req.params.token, { recursive: true }, (err) => {
@@ -47,6 +48,12 @@ exports.handleFileDelete = async (req,res) => {
     });
 };
 
+const getItemsResponse = async (req,res,token) => {
+    const response = await readFiles(UPLOAD_PATH + token,{},true);
+    res.writeHead(200, { 'Content-Type': 'application/json','X-File-Id':token });
+    res.end(JSON.stringify({token:token,content:response[UPLOAD_PATH + token]}));
+};
+
 const writeFiles = async (req,res,token) => {
     try{
         let files = await getFiles(req);
@@ -55,9 +62,8 @@ const writeFiles = async (req,res,token) => {
 
         await checkFileMimeType(source,token);
 
-        let scriptSummary = await Gcc.runScript(source);
+        return await Gcc.runScript(source);
 
-        handleFileUploadResponse(res,token,scriptSummary);
     }catch (e){
         console.log('error',e);
         generalErrorResponse(res,e);
@@ -101,7 +107,7 @@ const deleteFolder = (folder) => {
 
 const saveFiles = async (token,files)=>{
 
-    let newFileName = files.file.name.replace(/[^a-z0-9\-]/gi, '_').replaceLast('js','.js').replaceLast('zip','.zip');
+    let newFileName = files.file.name.replace(/[^a-z0-9\-.]/gi, '_');
     let oldpath = files.file.path;
     let newpath = `${UPLOAD_PATH}/${token}/`;
 
@@ -149,7 +155,7 @@ const handleFileUploadResponse = (res,token,scriptSummary) => {
     if(scriptSummary.code === 0){
         let data = fs.readFileSync(scriptSummary.target);
         res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
-        res.end(JSON.stringify({token:token,content:data}));
+        res.end(JSON.stringify({token:token,content:String(data)}));
         return;
     }
 

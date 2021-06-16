@@ -31,13 +31,14 @@ exports.handleGetItem = async (req,res) => {
         res.end(JSON.stringify({response:'File not found'}));
     }
     const response = await readFiles(UPLOAD_PATH + token,{},true);
-    res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
+    res.writeHead(200, { 'Content-Type': 'application/json','X-File-Id':token });
     res.end(JSON.stringify({token:token,content:response[UPLOAD_PATH + token]}));
     return;
 };
 exports.handleFileDelete = async (req,res) => {
     fs.rmdir(UPLOAD_PATH + req.params.token, { recursive: true }, (err) => {
         if (err) {
+            console.log('handleFileDelete',err);
             generalErrorResponse();
             return;
         }
@@ -58,6 +59,7 @@ const writeFiles = async (req,res,token) => {
 
         handleFileUploadResponse(res,token,scriptSummary);
     }catch (e){
+        console.log('error',e);
         generalErrorResponse(res,e);
     }
 }
@@ -153,14 +155,11 @@ const handleFileUploadResponse = (res,token,scriptSummary) => {
 
     deleteFolder(UPLOAD_PATH + token);
 
-    if([1,2].includes(scriptSummary.code)){
-        res.writeHead(406, { 'Content-Type': 'application/json'});
-        let pattern = new RegExp(UPLOAD_PATH + token, "g");
-        res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
-        return;
-    }
+    res.writeHead(406, { 'Content-Type': 'application/json'});
+    let pattern = new RegExp(UPLOAD_PATH + token, "g");
+    res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
+    return;
 
-    generalErrorResponse(res);
 
 };
 const handleZipFile = async (newpath,newFileName) => {
@@ -199,6 +198,6 @@ const handleZipFile = async (newpath,newFileName) => {
 };
 const generalErrorResponse = (res,msg) => {
     console.log('generalErrorResponse',msg);
-    res.writeHead(500, { 'Content-Type': 'text/javascript'});
-    res.end(msg ?? 'Uknown error');
+    res.writeHead(500, { 'Content-Type': 'application/json'});
+    res.end(JSON.stringify({response:msg ?? 'Unknown error'}));
 };

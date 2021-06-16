@@ -14,7 +14,7 @@ String.prototype.replaceLast = function (what, replacement) {
     return this;
 };
 
-app.get('/', file.listAllFiles)
+app.get('/', file.handleGetAllItems)
 app.post('/upload', file.handleFileUpload)
 app.get('/:token([a-zA-Z0-9]{16})', file.handleGetItem)
 app.put('/:token([a-zA-Z0-9]{16})', file.handleFileUpdate)

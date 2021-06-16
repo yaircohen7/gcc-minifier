@@ -9,7 +9,7 @@ const TokenService = require('../services/TokenService');
 const UPLOAD_PATH = './storage/uploads/';
 const ALLOWED_FILE_TYPES = ['text/javascript','application/javascript'];
 
-exports.listAllFiles = async (req,res) => {
+exports.handleGetAllItems = async (req,res) => {
 
     const response = await readFiles(UPLOAD_PATH);
     res.writeHead(200, { 'Content-Type': 'application/json'});

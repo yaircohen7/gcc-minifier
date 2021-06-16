@@ -13,7 +13,7 @@ exports.handleGetAllItems = async (req,res) => {
 
     const response = await readFiles(UPLOAD_PATH);
     res.writeHead(200, { 'Content-Type': 'application/json'});
-    res.end(JSON.stringify({reponse:Object.entries(response)}));
+    res.end(JSON.stringify({response:Object.entries(response)}));
 
 };
 exports.handleFileUpload = async (req,res) => {
@@ -50,16 +50,9 @@ const writeFiles = async (req,res,token) => {
     try{
         let files = await getFiles(req);
 
-        if(!files?.file){
-            throw 'File not found';
-        }
-
         let [source] = await saveFiles(token,files);
 
-        if(!ALLOWED_FILE_TYPES.includes(mime.lookup('../'+source))){
-            deleteFolder(UPLOAD_PATH + token);
-            throw 'File not supported';
-        }
+        await checkFileMimeType(source,token);
 
         let scriptSummary = await Gcc.runScript(source);
 
@@ -122,10 +115,17 @@ const saveFiles = async (token,files)=>{
     return [newpath + newFileName];
 };
 
+const checkFileMimeType = (source,token) => {
+    if(!ALLOWED_FILE_TYPES.includes(mime.lookup('../'+source))){
+        deleteFolder(UPLOAD_PATH + token);
+        throw 'File not supported';
+    }
+    return;
+}
+
 const getFiles = async (req) => {
-    const form = new formidable({ multiples: true });
-    form.encoding = 'utf-8';
-    let promise = new Promise((resolve, reject) => {
+
+    return new Promise((resolve, reject) => {
         const form = formidable({ multiples: true });
         form.encoding = 'utf-8';
         form.parse(req, (err, fields, files) => {
@@ -134,8 +134,13 @@ const getFiles = async (req) => {
             }
             resolve(files);
         });
+    }).then((files) => {
+        if(!files?.file){
+            throw 'File is missing!';
+        }
+        return files;
     });
-    return await promise;
+
 };
 
 const handleFileUploadResponse = (res,token,scriptSummary) => {

@@ -19,7 +19,6 @@ exports.listAllFiles = async (req,res) => {
 exports.handleFileUpload = async (req,res) => {
     let token = await TokenService.randomToken();
     writeFiles(req,res,token);
-
 };
 exports.handleFileUpdate = (req,res) => {
     writeFiles(req,res,req.params.token)
@@ -33,7 +32,7 @@ exports.handleGetItem = async (req,res) => {
     }
     const response = await readFiles(UPLOAD_PATH + token,{},true);
     res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
-    res.end(JSON.stringify({token:token,content:response}));
+    res.end(JSON.stringify({token:token,content:response[UPLOAD_PATH + token]}));
     return;
 };
 exports.handleFileDelete = async (req,res) => {
@@ -97,27 +96,6 @@ const readFiles =  (dir,arrayOfFiles,withContent = false) => {
     return arrayOfFiles
 };
 
-const handleFileUploadResponse = (res,token,scriptSummary) => {
-    if(scriptSummary.code === 0){
-        let data = fs.readFileSync(scriptSummary.target);
-        res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
-        res.end(JSON.stringify({token:token,content:data}));
-        return;
-    }
-
-    deleteFolder(UPLOAD_PATH + token);
-
-    if([1,2].includes(scriptSummary.code)){
-        res.writeHead(406, { 'Content-Type': 'application/json'});
-        let pattern = new RegExp(UPLOAD_PATH + token, "g");
-        res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
-        return;
-    }
-
-    generalErrorResponse(res);
-
-};
-
 const deleteFolder = (folder) => {
     fs.rmdir(folder, { recursive: true }, (err) => {
         if (err) {
@@ -142,6 +120,43 @@ const saveFiles = async (token,files)=>{
     }
 
     return [newpath + newFileName];
+};
+
+const getFiles = async (req) => {
+    const form = new formidable({ multiples: true });
+    form.encoding = 'utf-8';
+    let promise = new Promise((resolve, reject) => {
+        const form = formidable({ multiples: true });
+        form.encoding = 'utf-8';
+        form.parse(req, (err, fields, files) => {
+            if (err) {
+                reject(err);
+            }
+            resolve(files);
+        });
+    });
+    return await promise;
+};
+
+const handleFileUploadResponse = (res,token,scriptSummary) => {
+    if(scriptSummary.code === 0){
+        let data = fs.readFileSync(scriptSummary.target);
+        res.writeHead(200, { 'Content-Type': 'text/javascript','X-File-Id':token });
+        res.end(JSON.stringify({token:token,content:data}));
+        return;
+    }
+
+    deleteFolder(UPLOAD_PATH + token);
+
+    if([1,2].includes(scriptSummary.code)){
+        res.writeHead(406, { 'Content-Type': 'application/json'});
+        let pattern = new RegExp(UPLOAD_PATH + token, "g");
+        res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
+        return;
+    }
+
+    generalErrorResponse(res);
+
 };
 const handleZipFile = async (newpath,newFileName) => {
     let unzippedName = newFileName.replaceLast('zip','js');
@@ -177,26 +192,6 @@ const handleZipFile = async (newpath,newFileName) => {
 
     return await promise;
 };
-const getFiles = async (req) => {
-    const form = new formidable({ multiples: true });
-    form.encoding = 'utf-8';
-    let promise = new Promise((resolve, reject) => {
-        const form = formidable({ multiples: true });
-        form.encoding = 'utf-8';
-        form.parse(req, (err, fields, files) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            console.log('resolved');
-            resolve(files);
-            return;
-
-        });
-    });
-    return await promise;
-};
-
 const generalErrorResponse = (res,msg) => {
     console.log('generalErrorResponse',msg);
     res.writeHead(500, { 'Content-Type': 'text/javascript'});

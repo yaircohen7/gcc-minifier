@@ -24,8 +24,8 @@ exports.handleFileUpload = async (req,res) => {
 };
 exports.handleFileUpdate = async(req,res) => {
     let token = req.params.token;
-    await writeFiles(req,res,token);
-    getItemsResponse(req,res,token);
+    let scriptSummary = await writeFiles(req,res,token);
+    getItemsResponse(req,res,token,scriptSummary);
 };
 exports.handleGetItem = async (req,res) => {
     let token = req.params.token;
@@ -34,7 +34,7 @@ exports.handleGetItem = async (req,res) => {
         res.writeHead(404, { 'Content-Type': 'application/json','X-File-Id':token });
         res.end(JSON.stringify({response:'File not found'}));
     }
-    getItemsResponse(req,res,token);
+    getItemsResponse(req,res,token,false);
 
 };
 exports.handleFileDelete = async (req,res) => {
@@ -50,10 +50,19 @@ exports.handleFileDelete = async (req,res) => {
 };
 
 // Responses
-const getItemsResponse = async (req,res,token) => {
-    const response = await readFiles(UPLOAD_PATH + token,{},true);
-    res.writeHead(200, { 'Content-Type': 'application/json','X-File-Id':token });
-    res.end(JSON.stringify({token:token,content:response[UPLOAD_PATH + token]}));
+const getItemsResponse = async (req,res,token,scriptSummary) => {
+
+    if(!scriptSummary||scriptSummary?.code == 0){
+        const response = await readFiles(UPLOAD_PATH + token,{},true);
+        res.writeHead(200, { 'Content-Type': 'application/json','X-File-Id':token });
+        res.end(JSON.stringify({token:token,content:response[UPLOAD_PATH + token]}));
+        return;
+    }
+
+    res.writeHead(406, { 'Content-Type': 'application/json'});
+    let pattern = new RegExp(UPLOAD_PATH + token, "g");
+    res.end(JSON.stringify({response:scriptSummary.error.replace(pattern,'')}));
+    return;
 };
 const handleFileUploadResponse = (res,token,scriptSummary) => {
     if(scriptSummary.code === 0){

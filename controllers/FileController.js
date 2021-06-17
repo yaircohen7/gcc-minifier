@@ -91,7 +91,7 @@ const generalErrorResponse = (res,msg) => {
 const getFiles = async (req) => {
 
     return new Promise((resolve, reject) => {
-        const form = formidable({ multiples: true });
+        const form = formidable({ multiples: true,uploadDir: __dirname + '/../storage/temp' });
         form.encoding = 'utf-8';
         form.parse(req, (err, fields, files) => {
             if (err) {
